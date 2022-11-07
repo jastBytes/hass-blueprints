@@ -1,0 +1,89 @@
+blueprint:
+  domain: script
+  name: Notify everybody
+  source_url: https://github.com/jastBytes/hass-blueprints/blob/main/notify_everybody.yaml
+  input:
+    person_service_map:
+      name: Person notify services
+      description: >
+        Mappings between person names and their corresponding notify services.
+        The default value shows what the object should look like if the service 
+        `notify.mobile_app_john` belongs to `person.john`.
+      selector:
+        object:
+      default:
+        john: notify.mobile_app_john
+
+mode: parallel
+
+fields:
+  persons:
+    name: Persons
+    description: >
+      List with persons who should get a notification. If not supplied, all
+      persons will be used.
+    required: false
+    selector:
+      object:
+  person_status:
+    name: Person Status
+    required: false
+    selector:
+      select:
+        options:
+          - label: Any
+            value: any
+          - label: Home
+            value: home
+          - label: Not Home
+            value: not_home
+  title:
+    name: Title
+    description: Title of the notification
+    required: false
+    selector:
+      text:
+  message:
+    name: Message
+    description: Message to send
+    required: true
+    selector:
+      text:
+        multiline: true
+  data:
+    name: Data
+    description: Notification data object
+    required: false
+    selector:
+      object:
+sequence:
+  - variables:
+      person_service_map: !input person_service_map
+      persons: >
+        {% set all_persons = person_service_map.keys() | list %}
+        {{ persons | default(all_persons, true) }}
+      person_state: >
+        {% set default_state = "any" %}
+        {% if person_state == "" %}
+        person_state = default_state
+        {% endif %}
+  - repeat:
+      count: "{{ persons | count }}"
+      sequence:
+        - choose:
+            conditions: >
+              {% if person_state == "home"}
+                is_state('person.' ~ persons[repeat.index - 1], 'home')
+              {% else %}
+                {% if person_state == "not_home"}
+                  not is_state('person.' ~ persons[repeat.index - 1], 'home')
+                {% else %}
+                  true
+                {% endif %}
+              {% endif %}
+            sequence:
+              - service: "{{ person_service_map[persons[repeat.index - 1]] }}"
+                data:
+                  title: "{{ title | default }}"
+                  message: "{{ message | default }}"
+                  data: "{{ data | default({}) }}"
