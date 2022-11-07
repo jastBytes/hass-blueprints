@@ -71,16 +71,17 @@ sequence:
       count: "{{ persons | count }}"
       sequence:
         - choose:
-            conditions: >
-              {% if person_state == "home"}
-                is_state('person.' ~ persons[repeat.index - 1], 'home')
-              {% else %}
-                {% if person_state == "not_home"}
-                  not is_state('person.' ~ persons[repeat.index - 1], 'home')
+            conditions:
+              - >
+                {% if person_state == "home"}
+                  is_state('person.' ~ persons[repeat.index - 1], 'home')
                 {% else %}
-                  true
+                  {% if person_state == "not_home"}
+                    not is_state('person.' ~ persons[repeat.index - 1], 'home')
+                  {% else %}
+                    true
+                  {% endif %}
                 {% endif %}
-              {% endif %}
             sequence:
               - service: "{{ person_service_map[persons[repeat.index - 1]] }}"
                 data:
